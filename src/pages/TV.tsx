@@ -1,90 +1,57 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Helmet } from "react-helmet";
-import { tvApi } from "../api/api";
-import { TVListItem } from "../api/types";
-import { useGridSettings } from "../components/GridSettingsProvider";
-import Loading from "../components/Loading";
-import ScrollGridCategory from "../components/ScrollGridCategory";
-import TVMovieGridItem from "../components/TVMovieGridItem";
-import { MainContainer } from "../styles";
+import { useSelector } from "react-redux";
+
+import Loading from "components/common/Loading";
+import ScrollGrid from "components/common/ScrollGrid";
+import TVMovieGridItem from "components/common/TVMovieGridItem";
+
+import useAppDispatch from "hooks/useAppDispatch";
+
+import { RootState } from "modules";
+import { fetchTVCategories } from "modules/tvShows";
+
+import { MainContainer } from "styles";
+import ErrorPage from "components/common/ErrorPage";
 
 function TV() {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<{ [name: string]: TVListItem[] }>({});
-  const { columnWidth, scrollRatio } = useGridSettings();
+  const {
+    airingToday,
+    onTheAir,
+    popular,
+    topRated,
+    loading,
+    error,
+  } = useSelector((state: RootState) => state.tvShows.categories);
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const { data: airingToday } = await tvApi.airingToday();
-        const { data: onTheAir } = await tvApi.onTheAir();
-        const { data: popular } = await tvApi.popular();
-        const { data: topRated } = await tvApi.topRated();
+    dispatch(fetchTVCategories());
+  }, [dispatch]);
 
-        setData({
-          airingToday: airingToday.results,
-          onTheAir: onTheAir.results,
-          popular: popular.results,
-          topRated: topRated.results,
-        });
-      } catch (error) {
-        console.log(error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchData();
-  }, []);
-
+  if (loading) return <Loading />;
+  if (error) return <ErrorPage message={error} />;
   return (
     <>
       <Helmet>
         <title>TV 프로그램 | NachoBox</title>
       </Helmet>
-      {loading && <Loading />}
-      {!loading && (
-        <MainContainer>
-          <>
-            <ScrollGridCategory
-              title="오늘의 프로그램"
-              columnWidth={columnWidth}
-              gap={15}
-              scrollRatio={scrollRatio}
-              listLength={data.airingToday.length}
-            >
-              <TVMovieGridItem list={data.airingToday} />
-            </ScrollGridCategory>
-            <ScrollGridCategory
-              title="현재 방영중"
-              columnWidth={columnWidth}
-              gap={15}
-              scrollRatio={scrollRatio}
-              listLength={data.onTheAir.length}
-            >
-              <TVMovieGridItem list={data.onTheAir} />
-            </ScrollGridCategory>
-            <ScrollGridCategory
-              title="인기 프로그램"
-              columnWidth={columnWidth}
-              gap={15}
-              scrollRatio={scrollRatio}
-              listLength={data.popular.length}
-            >
-              <TVMovieGridItem list={data.popular} />
-            </ScrollGridCategory>
-            <ScrollGridCategory
-              title="최고 평점 프로그램"
-              columnWidth={columnWidth}
-              gap={15}
-              scrollRatio={scrollRatio}
-              listLength={data.topRated.length}
-            >
-              <TVMovieGridItem list={data.topRated} />
-            </ScrollGridCategory>
-          </>
-        </MainContainer>
-      )}
+      <MainContainer>
+        <>
+          <ScrollGrid title="오늘의 프로그램" listLength={airingToday.length}>
+            <TVMovieGridItem list={airingToday} />
+          </ScrollGrid>
+          <ScrollGrid title="현재 방영중" listLength={onTheAir.length}>
+            <TVMovieGridItem list={onTheAir} />
+          </ScrollGrid>
+          <ScrollGrid title="인기 프로그램" listLength={popular.length}>
+            <TVMovieGridItem list={popular} />
+          </ScrollGrid>
+          <ScrollGrid title="최고 평점 프로그램" listLength={topRated.length}>
+            <TVMovieGridItem list={topRated} />
+          </ScrollGrid>
+        </>
+      </MainContainer>
     </>
   );
 }

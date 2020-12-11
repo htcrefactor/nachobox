@@ -1,47 +1,38 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Helmet } from "react-helmet";
-import { movieApi } from "../api/api";
-import { MovieListItem } from "../api/types";
-import Loading from "../components/Loading";
-import RecommendedMovie from "../components/RecommendedMovie";
+import { useSelector } from "react-redux";
 
-function getRecommendedMovie(movieList: MovieListItem[]) {
-  const filtered = movieList.filter((movie) => movie.backdrop_path);
-  const randomIdx = Math.floor(Math.random() * filtered.length);
+import Loading from "components/common/Loading";
+import RecommendedMovie from "components/home/RecommendedMovie";
 
-  return filtered[randomIdx];
-}
+import useAppDispatch from "hooks/useAppDispatch";
+
+import { RootState } from "modules";
+import { fetchRecommendedMovie } from "modules/movies";
+import ErrorPage from "components/common/ErrorPage";
 
 function Home() {
-  const [loading, setLoading] = useState(true);
-  const [recommendedMovie, setRecommendedMovie] = useState<MovieListItem>();
+  const { movie, loading, error } = useSelector(
+    (state: RootState) => state.movies.recommended
+  );
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const { data: nowPlaying } = await movieApi.nowPlaying();
+    dispatch(fetchRecommendedMovie());
+  }, [dispatch]);
 
-        setRecommendedMovie(getRecommendedMovie(nowPlaying.results));
-      } catch (error) {
-        console.log(error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchData();
-  }, []);
-
+  if (loading) return <Loading />;
+  if (error) return <ErrorPage message={error} />;
+  if (!movie)
+    return (
+      <ErrorPage message="추천 영화 정보를 불러오는 데 오류가 발생했습니다." />
+    );
   return (
     <>
       <Helmet>
         <title>홈 | NachoBox</title>
       </Helmet>
-      {loading && <Loading />}
-      {!loading && recommendedMovie && (
-        <RecommendedMovie movie={recommendedMovie} />
-      )}
+      <RecommendedMovie movie={movie} />
     </>
   );
 }

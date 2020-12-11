@@ -1,14 +1,19 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Helmet } from "react-helmet";
 import styled from "styled-components";
-import { movieApi, tvApi } from "../api/api";
-import { MovieListItem, TVListItem } from "../api/types";
-import { useGridSettings } from "../components/GridSettingsProvider";
-import Loading from "../components/Loading";
-import ScrollGridCategory from "../components/ScrollGridCategory";
-import TVMovieGridItem from "../components/TVMovieGridItem";
-import useQuery from "../hooks/useQuery";
-import { MainContainer } from "../styles";
+
+import Loading from "components/common/Loading";
+import ScrollGrid from "components/common/ScrollGrid";
+import TVMovieGridItem from "components/common/TVMovieGridItem";
+
+import useQuery from "hooks/useQuery";
+
+import { MainContainer } from "styles";
+import { useSelector } from "react-redux";
+import { RootState } from "modules";
+import useAppDispatch from "hooks/useAppDispatch";
+import { fetchSearchResults } from "modules/search";
+import ErrorPage from "components/common/ErrorPage";
 
 const Title = styled.h1`
   font-size: 1.5rem;
@@ -18,72 +23,43 @@ const Title = styled.h1`
   border-bottom: 1px solid ${({ theme }) => theme.colors.gray};
 `;
 
-type SearchResult = {
-  movies: MovieListItem[];
-  tvShows: TVListItem[];
-};
-
 function Search() {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<SearchResult>({ movies: [], tvShows: [] });
-  const searchTerm = useQuery("term");
-  const { columnWidth, scrollRatio } = useGridSettings();
+  const searchTerm = useQuery("term") as string;
+  const { movies, tvShows, loading, error } = useSelector(
+    (state: RootState) => state.search[searchTerm]
+  ) || {
+    movies: [],
+    tvs: [],
+    loading: true,
+    error: null,
+  };
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
-    async function fetchData() {
-      if (!searchTerm) return;
+    dispatch(fetchSearchResults(searchTerm));
+  }, [dispatch, searchTerm]);
 
-      setLoading(true);
-      try {
-        const { data: movies } = await movieApi.search(searchTerm);
-        const { data: tvShows } = await tvApi.search(searchTerm);
-
-        setData({ movies: movies.results, tvShows: tvShows.results });
-      } catch (error) {
-        console.log(error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, [searchTerm]);
-
+  if (loading) return <Loading />;
+  if (error) return <ErrorPage message={error} />;
   return (
     <>
       <Helmet>
         <title>검색 | NachoBox</title>
       </Helmet>
-      {loading && <Loading />}
-      {!loading && (
-        <MainContainer>
-          <Title>"{searchTerm}" 검색 결과</Title>
-          {data.movies.length !== 0 && (
-            <ScrollGridCategory
-              title="영화"
-              columnWidth={columnWidth}
-              gap={15}
-              listLength={data.movies.length}
-              scrollRatio={scrollRatio}
-            >
-              <TVMovieGridItem list={data.movies} />
-            </ScrollGridCategory>
-          )}
-          {data.tvShows.length !== 0 && (
-            <ScrollGridCategory
-              title="TV 프로그램"
-              columnWidth={columnWidth}
-              gap={15}
-              listLength={data.tvShows.length}
-              scrollRatio={scrollRatio}
-            >
-              <TVMovieGridItem list={data.tvShows} />
-            </ScrollGridCategory>
-          )}
-          {data.movies.length === 0 &&
-            data.tvShows.length === 0 &&
-            "검색 결과가 없습니다."}
-        </MainContainer>
-      )}
+      <MainContainer>
+        <Title>"{searchTerm}" 검색 결과</Title>
+        {movies.length !== 0 && (
+          <ScrollGrid title="영화" listLength={movies.length}>
+            <TVMovieGridItem list={movies} />
+          </ScrollGrid>
+        )}
+        {tvShows.length !== 0 && (
+          <ScrollGrid title="TV 프로그램" listLength={tvShows.length}>
+            <TVMovieGridItem list={tvShows} />
+          </ScrollGrid>
+        )}
+        {movies.length === 0 && tvShows.length === 0 && "검색 결과가 없습니다."}
+      </MainContainer>
     </>
   );
 }
